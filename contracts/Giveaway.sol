@@ -11,11 +11,13 @@ contract Giveaway is ReentrancyGuard {
     uint256 public amount;
     uint256 public numPeople;
     string public customUrl;
+    string public description;
     uint public authType; // 0 for Twitter, 1 for Farcaster, 2 for Either
     uint public status; // 0 = Inactive, 1 = Active, 2 = Completed, 3 = Cancelled
     string public banner;
     mapping(address => bool) public isAuthenticated;
     mapping(address => bool) public hasClaimed;
+    mapping(string => bool) public socialClaimed;
     uint256 public claimedCount;
 
     constructor() {
@@ -25,8 +27,10 @@ contract Giveaway is ReentrancyGuard {
     event Authenticated(address indexed user, bool status);
     event TokensClaimed(address indexed user, uint256 amount);
     event StatusChange(uint status);
-    event Initialized(address admin, address owner, address token, uint256 amount, uint256 numPeople, string customUrl, uint authType, string banner);
+    event Initialized(address admin, address owner, address token, uint256 amount, uint256 numPeople, string customUrl, string description, uint authType, string banner);
     event BannerChange(string banner);
+    event GiveawayCancelled();
+
 
     modifier onlyAdmin() {
         require(msg.sender == admin, "Only admin can perform this action");
@@ -40,6 +44,7 @@ contract Giveaway is ReentrancyGuard {
         uint256 _amount,
         uint256 _numPeople,
         string memory _customUrl,
+        string memory _description,
         uint _authType,
         string memory _banner
     ) external {
@@ -50,15 +55,17 @@ contract Giveaway is ReentrancyGuard {
         amount = _amount;
         numPeople = _numPeople;
         customUrl = _customUrl;
+        description = _description;
         authType = _authType;
         banner = _banner;
-        status = 0; // Default to inactive
-        emit Initialized(admin, owner, token, amount, numPeople, customUrl, authType, banner);
+        status = 1; // Default to inactive
+        emit Initialized(admin, owner, token, amount, numPeople, customUrl, description, authType, banner);
     }
 
     // Function to change the status
     function setStatus(uint _status) public {
         require(msg.sender == owner, "Only owner can change status");
+        require(status != 3, "Cannot change status of a cancelled giveaway");
         status = _status;
         emit StatusChange(status);
     }
@@ -70,13 +77,15 @@ contract Giveaway is ReentrancyGuard {
         emit BannerChange(banner);
     }
 
-    function claimTokens() public nonReentrant {
+    function claimTokens(string memory social) public nonReentrant {
         require(isAuthenticated[msg.sender], "User not authenticated.");
         require(!hasClaimed[msg.sender], "Tokens already claimed.");
+        require(!socialClaimed[social], "Social already connected.");
         require(status == 1, "Giveaway not open.");
         require(IERC20(token).balanceOf(address(this)) >= amount, "Insufficient token balance.");
         require(IERC20(token).transfer(msg.sender, amount), "Token transfer failed.");
         hasClaimed[msg.sender] = true;
+        socialClaimed[social] = true;
         emit TokensClaimed(msg.sender, amount);
         claimedCount += 1;
         if (claimedCount == numPeople) {
@@ -88,6 +97,25 @@ contract Giveaway is ReentrancyGuard {
     function setAuthenticated(address user, bool _status) public onlyAdmin {
         isAuthenticated[user] = _status;
         emit Authenticated(user, _status);
+    }
+
+    function userIsAuthenticated(address user) public view returns (bool) {
+        return isAuthenticated[user];
+    }
+
+    function setAuthenticatedBatch(address[] memory users) public onlyAdmin {
+        for (uint i = 0; i < users.length; i++) {
+            isAuthenticated[users[i]] = true;
+        }
+    }
+
+    function cancelGiveaway() public {
+        require(msg.sender == owner, "Only owner can cancel the giveaway");
+        require(status != 3, "Giveaway already cancelled");
+        status = 3;
+        uint256 remainingTokens = IERC20(token).balanceOf(address(this));
+        require(IERC20(token).transfer(owner, remainingTokens), "Token transfer failed.");
+        emit GiveawayCancelled();
     }
 
     function totalAmount() public view returns (uint256) {
@@ -112,6 +140,7 @@ contract Giveaway is ReentrancyGuard {
         uint256, 
         uint256, 
         string memory, 
+        string memory, 
         uint, 
         uint,
         uint256,
@@ -124,6 +153,7 @@ contract Giveaway is ReentrancyGuard {
             amount,
             numPeople,
             customUrl,
+            description,
             authType,
             status,
             claimedCount,
