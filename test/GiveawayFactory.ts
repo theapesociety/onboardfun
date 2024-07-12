@@ -29,6 +29,7 @@ describe("GiveawayFactory", function () {
     [owner, addr1, addr2, funuser, bonususer] = await ethers.getSigners();
 
     factory = (await Factory.deploy(owner)) as GiveawayFactory;
+    await factory.changeFeeAddress(await funuser.getAddress());
 
     await token.transfer(
       await owner.getAddress(),
@@ -41,7 +42,7 @@ describe("GiveawayFactory", function () {
       .connect(owner)
       .approve(
         await factory.getAddress(),
-        ethers.getBigInt(amount * numPeople)
+        ethers.getBigInt(amount * numPeople * 1.01)
       );
 
     // Create a new Giveaway with a slug
@@ -53,8 +54,9 @@ describe("GiveawayFactory", function () {
         numPeople,
         "unique-slug",
         "This is the cooles project ever",
-        0,
-        "http://examplebanner.com"
+        "twitter,farcaster",
+        "http://examplebanner.com",
+        "00,00,00,00"
       );
     const giveawayAddress = await factory.giveaways(0);
 
@@ -149,7 +151,7 @@ describe("GiveawayFactory", function () {
       expect(remainingTokens).to.equal(0);
 
       const ownerBalance = await token.balanceOf(await owner.getAddress());
-      expect(ownerBalance).to.equal(10000000);
+      expect(ownerBalance).to.equal(10000000 - numPeople * amount * 0.01);
     });
 
     it("Should prevent non-owners from canceling the giveaway", async function () {
@@ -268,6 +270,19 @@ describe("GiveawayFactory", function () {
       ).to.be.revertedWith("Giveaway not open.");
     });
   });
+
+  describe("Fees", function () {
+    it("Should allow fee owner to be changed", async function () {
+      await factory.changeFeeAddress(await funuser.getAddress());
+      expect(await factory.feeAddress()).to.be.eql(await funuser.getAddress());
+    });
+
+    it("Should have the right balance of fees in the fee wallet", async function () {
+      expect(await token.balanceOf(await funuser.getAddress())).to.equal(
+        ethers.getBigInt((amount * numPeople * 1) / 100)
+      );
+    });
+  });
 });
 
 describe("Slug Validation", function () {
@@ -299,7 +314,7 @@ describe("Slug Validation", function () {
       .connect(owner)
       .approve(
         await factory.getAddress(),
-        ethers.getBigInt(amount * numPeople)
+        ethers.getBigInt(amount * numPeople * 1.01)
       );
   });
 
@@ -315,8 +330,9 @@ describe("Slug Validation", function () {
           numPeople,
           invalidSlug,
           "This is the cooles project ever",
-          0,
-          "http://examplebanner.com"
+          "twitter,farcaster",
+          "http://examplebanner.com",
+          "00,00,00,00"
         )
     ).to.be.revertedWith("Invalid slug");
   });
@@ -333,8 +349,9 @@ describe("Slug Validation", function () {
           numPeople,
           invalidSlug,
           "This is the cooles project ever",
-          0,
-          "http://examplebanner.com"
+          "twitter,farcaster",
+          "http://examplebanner.com",
+          "00,00,00,00"
         )
     ).to.be.revertedWith("Invalid slug");
   });
@@ -351,8 +368,9 @@ describe("Slug Validation", function () {
           numPeople,
           validSlug,
           "This is the cooles project ever",
-          0,
-          "http://examplebanner.com"
+          "twitter,farcaster",
+          "http://examplebanner.com",
+          "00,00,00,00"
         )
     ).not.to.be.reverted;
   });
@@ -368,8 +386,9 @@ describe("Slug Validation", function () {
         numPeople,
         slug,
         "This is the cooles project ever",
-        0,
-        "http://examplebanner.com"
+        "twitter,farcaster",
+        "http://examplebanner.com",
+        "00,00,00,00"
       ); // First time should work
     await expect(
       factory
@@ -380,8 +399,9 @@ describe("Slug Validation", function () {
           numPeople,
           slug,
           "This is the cooles project ever",
-          0,
-          "http://examplebanner.com"
+          "twitter,farcaster",
+          "http://examplebanner.com",
+          "00,00,00,00"
         )
     ).to.be.revertedWith("Custom URL already used");
   });

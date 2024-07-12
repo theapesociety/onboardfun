@@ -12,7 +12,8 @@ contract Giveaway is ReentrancyGuard {
     uint256 public numPeople;
     string public customUrl;
     string public description;
-    uint public authType; // 0 for Twitter, 1 for Farcaster, 2 for Either
+    string public socialConfig;
+    string public authType;
     uint public status; // 0 = Inactive, 1 = Active, 2 = Completed, 3 = Cancelled
     string public banner;
     mapping(address => bool) public isAuthenticated;
@@ -27,7 +28,7 @@ contract Giveaway is ReentrancyGuard {
     event Authenticated(address indexed user, bool status);
     event TokensClaimed(address indexed user, uint256 amount);
     event StatusChange(uint status);
-    event Initialized(address admin, address owner, address token, uint256 amount, uint256 numPeople, string customUrl, string description, uint authType, string banner);
+    event Initialized(address admin, address owner, address token, uint256 amount, uint256 numPeople, string customUrl, string description, string authType, string banner, string socialConfig);
     event BannerChange(string banner);
     event GiveawayCancelled();
 
@@ -45,8 +46,9 @@ contract Giveaway is ReentrancyGuard {
         uint256 _numPeople,
         string memory _customUrl,
         string memory _description,
-        uint _authType,
-        string memory _banner
+        string memory _authType,
+        string memory _banner,
+        string memory _socialConfig
     ) external {
         require(owner == address(0), "Already initialized"); // Ensure it's not re-initialized
         admin = _admin;
@@ -58,8 +60,9 @@ contract Giveaway is ReentrancyGuard {
         description = _description;
         authType = _authType;
         banner = _banner;
+        socialConfig = _socialConfig;
         status = 1; // Default to inactive
-        emit Initialized(admin, owner, token, amount, numPeople, customUrl, description, authType, banner);
+        emit Initialized(admin, owner, token, amount, numPeople, customUrl, description, authType, banner, socialConfig);
     }
 
     // Function to change the status
@@ -141,9 +144,10 @@ contract Giveaway is ReentrancyGuard {
         uint256, 
         string memory, 
         string memory, 
-        uint, 
+        string memory, 
         uint,
         uint256,
+        string memory,
         string memory
     ) {
         return (
@@ -157,7 +161,8 @@ contract Giveaway is ReentrancyGuard {
             authType,
             status,
             claimedCount,
-            banner
+            banner,
+            socialConfig
         );
     }
 }

@@ -11,12 +11,14 @@ contract GiveawayFactory is Ownable {
     address public admin;
     address[] public giveaways;
     address public tokenImplementation;
+    address public feeAddress;
     mapping(string => bool) public usedUrls;
     mapping(address => address[]) public ownerGiveaways;
 
     constructor(address _admin) Ownable(_admin) {
         tokenImplementation = address(new Giveaway());
         admin = _admin;
+        feeAddress = _admin;
     }
 
     event GiveawayCreated(address indexed giveawayAddress, string customUrl);
@@ -42,18 +44,21 @@ contract GiveawayFactory is Ownable {
         uint256 numPeople,
         string memory customUrl,
         string memory description,
-        uint authType,
-        string memory banner
+        string memory authType,
+        string memory banner,
+        string memory socialConfig
     ) public returns (address) {
         require(isValidSlug(customUrl), "Invalid slug");
         require(!usedUrls[customUrl], "Custom URL already used");
         require(IERC20(token).totalSupply() > 0, "Invalid token address");
 
         address clone = Clones.clone(tokenImplementation);
-        Giveaway(clone).initialize(admin, msg.sender, token, amount, numPeople, customUrl, description, authType, banner);
+        Giveaway(clone).initialize(admin, msg.sender, token, amount, numPeople, customUrl, description, authType, banner, socialConfig);
 
         uint256 totalAmount = amount * numPeople;
         require(IERC20(token).transferFrom(msg.sender, clone, totalAmount), "Token transfer failed");
+
+        require(IERC20(token).transferFrom(msg.sender, feeAddress, totalAmount * 1 / 100), "Fee transfer failed");
 
         giveaways.push(clone);
         ownerGiveaways[msg.sender].push(clone);
@@ -77,6 +82,10 @@ contract GiveawayFactory is Ownable {
 
     function numGiveaways() public view returns (uint256) {
         return giveaways.length;
+    }
+
+    function changeFeeAddress(address _feeAddress) public onlyOwner {
+        feeAddress = _feeAddress;
     }
 
     function isUrlAvailable(string memory customUrl) public view returns (bool) {
